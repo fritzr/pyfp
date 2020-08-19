@@ -6,17 +6,13 @@ from .util import zero, one, two
 from .ieee import ieee_format
 
 
-def find_fp(
-    func,
-    limit,
-    xstart,
-    xstop,
-    xstep,
-    compare,
-    max_steps=None,
+def find_fp_fast(
+    func, limit, xstart, xstop, xstep, compare, max_steps=None,
 ):
     """
-    Find the first value such that |func(x) - limit(x)| <= |eps(x)|.
+    Find the first power-of-2 such that |func(x) - limit(x)| <= |eps(x)|.
+
+    To find the absolute limit, use bisect_limit on [x, x*2].
 
     The initial value is `init`, and each subsequent value is computed by
     step(x).
@@ -56,13 +52,9 @@ def find_fp(
 
     return nsteps, x
 
-def find_limit(
-    func,
-    limit,
-    xstart=None,
-    xstop=None,
-    nulp=0,
-    prec=None,
+
+def find_limit_fast(
+    func, limit, xstart=None, xstop=None, nulp=0, prec=None,
 ):
 
     fmt = ieee_format(prec)
@@ -76,8 +68,8 @@ def find_limit(
     def xstep(x):
         return x / two
 
-
     if nulp:
+
         def compare(fx, lx):
             return abs(fx - lx) <= fmt.ulp(fx)
 
@@ -85,18 +77,20 @@ def find_limit(
         compare = eq
 
     with workprec(prec or mp.prec):
-        return find_fp(func, limit, xstart, xstop, xstep, eq,
-                max_steps=abs(fmt.min_exp()))
+        return find_fp(
+            func,
+            limit,
+            xstart,
+            xstop,
+            xstep,
+            compare,
+            max_steps=abs(fmt.min_exp()),
+        )
 
 
-def find_limit_reverse(
-    func,
-    limit,
-    xstart=None,
-    xstop=None,
-    nulp=0,
-    prec=None,
-    ):
+def find_limit_reverse_fast(
+    func, limit, xstart=None, xstop=None, nulp=0, prec=None,
+):
 
     fmt = ieee_format(prec)
 
@@ -110,6 +104,7 @@ def find_limit_reverse(
         return x * two
 
     if nulp:
+
         def compare(fx, lx):
             return abs(fx - lx) > fmt.ulp(fx)
 
@@ -117,6 +112,125 @@ def find_limit_reverse(
         compare = ne
 
     with workprec(prec or mp.prec):
-        steps, value = find_fp(func, limit, xstart, xstop, xstep, ne,
-                max_steps=abs(fmt.min_exp()))
+        steps, value = find_fp(
+            func,
+            limit,
+            xstart,
+            xstop,
+            xstep,
+            compare,
+            max_steps=abs(fmt.min_exp()),
+        )
         return (abs(fmt.min_exp()) - steps + 1), (value / two)
+
+
+def bisect_limit(
+    func, limit, lower_limit, upper_limit=None, nulp=0, prec=None,
+):
+
+    fmt = ieee_format(prec)
+
+    if upper_limit is None:
+        upper_limit = 2 * lower_limit
+
+    if nulp:
+
+        def compare(fx, lx):
+            return abs(fx - lx) > fmt.ulp(fx)
+
+    else:
+        compare = eq
+
+    with workprec(prec or mp.prec):
+        x = lower_limit
+        last_x = None
+        nsteps = 0
+        while x != last_x and lower_limit != upper_limit:
+            if compare(func(x), limit(x)):
+                lower_limit = x
+            else:
+                upper_limit = x
+            last_x = x
+            x = (upper_limit + lower_limit) / 2
+            nsteps += 1
+
+        return nsteps, lower_limit
+
+
+def find_limit(
+    func, limit, xstart=None, xstop=None, nulp=0, prec=None,
+):
+
+    fmt = ieee_format(prec)
+
+    if xstart is None:
+        xstart = mp.one
+
+    if xstop is None:
+        xstop = fmt.min_value()
+
+    def xstep(x):
+        return x / two
+
+    if nulp:
+
+        def compare(fx, lx):
+            return abs(fx - lx) <= fmt.ulp(fx)
+
+    else:
+        compare = eq
+
+    with workprec(prec or mp.prec):
+        n_min, x_n = find_fp(
+            func,
+            limit,
+            xstart,
+            xstop,
+            xstep,
+            compare,
+            max_steps=abs(fmt.min_exp()),
+        )
+
+        steps, limit = bisect_limit(func, limit, x_n, x_n * 2, nulp, prec)
+
+    return limit, n_min, steps
+
+
+def find_limit_reverse(
+    func, limit, xstart=None, xstop=None, nulp=0, prec=None,
+):
+
+    fmt = ieee_format(prec)
+
+    if xstart is None:
+        xstart = fmt.min_value()
+
+    if xstop is None:
+        xstop = one
+
+    def xstep(x):
+        return x * two
+
+    if nulp:
+
+        def compare(fx, lx):
+            return abs(fx - lx) > fmt.ulp(fx)
+
+    else:
+        compare = ne
+
+    with workprec(prec or mp.prec):
+        n_min, x_n = find_fp(
+            func,
+            limit,
+            xstart,
+            xstop,
+            xstep,
+            compare,
+            max_steps=abs(fmt.min_exp()),
+        )
+
+        n_min = abs(fmt.min_exp()) - n_min + 1
+        steps, limit = bisect_limit(func, limit, x_n / two, x_n, nulp, prec)
+
+    return limit, n_min, steps
