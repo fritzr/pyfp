@@ -58,10 +58,10 @@ def sind_approx(x):
 # As x -> 0, find where sind(x) ~= x.
 #
 # Search in reverse, since this can be quite small.
-def sind_small(prec=None):
-    return find_limit(sind, sind_approx, prec=prec, nulp=1)
+def sind_small(prec=None, nulp=0):
+    return find_limit(sind, sind_approx, prec=prec, nulp=nulp)
 
 
 # As x ->, tand(x) ~= x.
-def tand_small(prec=None):
-    return find_limit(tand, sind_approx, prec=prec, nulp=1)
+def tand_small(prec=None, nulp=0):
+    return find_limit(tand, sind_approx, prec=prec, nulp=nulp)
