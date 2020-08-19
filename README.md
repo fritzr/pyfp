@@ -4,6 +4,16 @@ pyfp
 Simple package for floating-point precision tests, based on the
 [mpmath](https://github.com/fredrik-johansson/mpmath) package.
 
+Installing
+----------
+
+I find the easiest way to install is:
+
+```bash
+$ git clone https://github.com/fritzr/pyfp
+$ pip install ./pyfp
+```
+
 fp.ieee
 -------
 
