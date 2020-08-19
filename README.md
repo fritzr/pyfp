@@ -14,6 +14,10 @@ $ git clone https://github.com/fritzr/pyfp
 $ pip install ./pyfp
 ```
 
+You will of course need the
+[mpmath](https://github.com/fredrik-johansson/mpmath) package, but
+using `pip install` should take care of this for you.
+
 fp.ieee
 -------
 
